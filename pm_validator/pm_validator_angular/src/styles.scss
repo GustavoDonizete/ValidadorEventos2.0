@@ -1,0 +1,199 @@
+:root {
+  --orange: #EC7000;
+  --orange-light: #FF8C1A;
+  --orange-dim: rgba(236,112,0,0.12);
+  --orange-border: rgba(236,112,0,0.28);
+  --bg: #0F0F0F;
+  --surface: #181818;
+  --surface3: #2A2A2A;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #F0EBE3;
+  --text-mid: #999;
+  --text-dim: #555;
+  --green: #27AE60;
+  --yellow: #E67E22;
+  --red: #C0392B;
+  --green-bg: rgba(39,174,96,0.08);
+  --yellow-bg: rgba(230,126,34,0.08);
+  --red-bg: rgba(192,57,43,0.08);
+  --green-border: rgba(39,174,96,0.25);
+  --yellow-border: rgba(230,126,34,0.25);
+  --red-border: rgba(192,57,43,0.25);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 900px 700px at 90% -5%, rgba(236,112,0,0.07) 0%, transparent 65%),
+    radial-gradient(ellipse 700px 500px at -5% 95%, rgba(236,112,0,0.04) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+// Shared button styles
+.btn {
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+  box-shadow: 0 4px 20px rgba(236,112,0,0.22);
+
+  &:hover:not(:disabled) { background: var(--orange-light); transform: translateY(-1px); }
+  &:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-mid);
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+
+  &:hover { border-color: rgba(255,255,255,0.3); color: var(--text); }
+}
+
+.btn-sm {
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.2s;
+
+  &:hover { background: var(--orange-light); }
+}
+
+// Shared input/select
+select, input[type="text"] {
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  transition: border-color 0.2s;
+
+  &:focus { border-color: var(--orange-border); }
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'%3E%3Cpath d='M1 1l4.5 4.5L10 1' stroke='%23EC7000' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-color: var(--surface3);
+  padding-right: 34px;
+  cursor: pointer;
+
+  option { background: #2A2A2A; }
+}
+
+// Shared tag
+.tag {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  border: 1px solid;
+
+  &.ok   { background: var(--green-bg);  color: var(--green);  border-color: var(--green-border); }
+  &.miss { background: var(--red-bg);    color: var(--red);    border-color: var(--red-border); }
+}
+
+// Shared meta badge
+.meta-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid;
+
+  &.ok   { background: var(--green-bg);  color: var(--green);  border-color: var(--green-border); }
+  &.warn { background: var(--yellow-bg); color: var(--yellow); border-color: var(--yellow-border); }
+  &.err  { background: var(--red-bg);    color: var(--red);    border-color: var(--red-border); }
+}
+
+.meta-mono {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  background: rgba(255,255,255,0.05);
+  padding: 2px 7px;
+  border-radius: 3px;
+  color: var(--text-mid);
+}
+
+.enc-badge {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border2);
+  color: var(--text-mid);
+  font-family: 'DM Mono', monospace;
+
+  &.warn { background: var(--yellow-bg); border-color: var(--yellow-border); color: var(--yellow); }
+}
+
+// Shared eyebrow
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 14px;
+
+  &.red    { color: var(--red); }
+  &.orange { color: var(--orange); }
+}
+
+// Bar components
+.bar-track {
+  height: 5px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 3px;
+  overflow: hidden;
+  flex: 1;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
