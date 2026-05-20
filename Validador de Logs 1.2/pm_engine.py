@@ -593,7 +593,7 @@ def score_pillar2(df: pd.DataFrame, case_col: str, act_col: str,
     # ── Sub 2.2 Densidade por case (50 pts) ──
     valid = df[[case_col, act_col]].copy()
     valid = valid[valid[case_col].notna() & valid[act_col].notna()]
-    events_per_case = valid.groupby(case_col, sort=False).size()
+    events_per_case = valid.groupby(case_col, sort=False, observed=True).size()
     total_cases = len(events_per_case)
     total_events = int(events_per_case.sum())
     pct_lt2 = float((events_per_case < 2).sum() / max(total_cases, 1))
@@ -759,7 +759,7 @@ def score_pillar3(df: pd.DataFrame, case_col: str, act_col: str,
     valid_ts = valid[valid["__start"].notna()].copy()
     if df_sorted is None:
         valid_ts = valid_ts.sort_values([case_col, "__start"])
-    valid_ts["__prev_start"] = valid_ts.groupby(case_col, sort=False)["__start"].shift(1)
+    valid_ts["__prev_start"] = valid_ts.groupby(case_col, sort=False, observed=True)["__start"].shift(1)
     inversions = (valid_ts["__start"] < valid_ts["__prev_start"]).sum()
     inversion_rate = float(inversions / max(n_valid, 1))
 
@@ -799,7 +799,7 @@ def score_pillar3(df: pd.DataFrame, case_col: str, act_col: str,
     valid_ts2 = valid[valid["__start"].notna()].copy()
     if df_sorted is None:
         valid_ts2 = valid_ts2.sort_values([case_col, "__start"])
-    valid_ts2["__next_start"] = valid_ts2.groupby(case_col, sort=False)["__start"].shift(-1)
+    valid_ts2["__next_start"] = valid_ts2.groupby(case_col, sort=False, observed=True)["__start"].shift(-1)
     valid_ts2["__gap_days"] = (valid_ts2["__next_start"] - valid_ts2["__start"]).dt.days
     intra_gaps = valid_ts2["__gap_days"].dropna()
     absurd_threshold = 365
@@ -964,7 +964,7 @@ def score_pillar4(df: pd.DataFrame, case_col: str, act_col: str,
         "start": start_parsed,
     })
     collision_key_valid = collision_key[collision_key["case"].notna()].copy()
-    grp = collision_key_valid.groupby(["case", "act", "start"], sort=False).size()
+    grp = collision_key_valid.groupby(["case", "act", "start"], sort=False, observed=True).size()
     colliding_keys = grp[grp > 1].reset_index()
     cases_with_collision = colliding_keys["case"].nunique() if len(colliding_keys) > 0 else 0
     total_cases = df[case_col].nunique()
@@ -1076,7 +1076,7 @@ def score_pillar5(df: pd.DataFrame, case_col: str, act_col: str,
         if end_col:
             valid["__end"] = pd.to_datetime(valid[end_col], errors="coerce", dayfirst=dayfirst)
 
-    grp = valid[valid["__start"].notna()].groupby(case_col, sort=False)
+    grp = valid[valid["__start"].notna()].groupby(case_col, sort=False, observed=True)
 
     events_per_case = grp["__start"].count()
     distinct_acts   = grp[act_col].nunique()
@@ -1336,7 +1336,7 @@ def score_pillar6(df: pd.DataFrame, case_col: str, act_col: str,
     sorted_valid = valid[valid["__start"].notna()]
     if df_sorted is None:
         sorted_valid = sorted_valid.sort_values([case_col, "__start"])
-    variants = sorted_valid.groupby(case_col, sort=False)[act_col].apply(tuple)
+    variants = sorted_valid.groupby(case_col, sort=False, observed=True)[act_col].apply(tuple)
     variant_counts = variants.value_counts()
     n_variants     = len(variant_counts)
     variant_ratio  = float(n_variants / max(total_cases, 1))
@@ -1374,7 +1374,7 @@ def score_pillar6(df: pd.DataFrame, case_col: str, act_col: str,
         valid_end = valid[valid["__start"].notna() & valid["__end"].notna()].copy()
         if df_sorted is None:
             valid_end = valid_end.sort_values([case_col, "__start"])
-        valid_end["__prev_end"] = valid_end.groupby(case_col, sort=False)["__end"].shift(1)
+        valid_end["__prev_end"] = valid_end.groupby(case_col, sort=False, observed=True)["__end"].shift(1)
         overlap_mask = valid_end["__start"] < valid_end["__prev_end"]
         cases_with_overlap = valid_end[overlap_mask][case_col].nunique()
         overlap_case_rate  = float(cases_with_overlap / max(total_cases, 1))
@@ -2510,11 +2510,11 @@ def start_server(port: int = 5000):
                     })
                 else:
                     detected_enc = _detect_encoding(tmp_path)
-                    user_delim = config.get("delimiter", "auto")
+                    # Bug 1 fix: /columns always auto-detects the delimiter.
+                    # The UI dropdown default (',') must not override detection here —
+                    # the correct sep is returned to the frontend which then updates the UI.
                     if suffix == ".tsv":
                         sep = "\t"
-                    elif user_delim != "auto":
-                        sep = user_delim
                     else:
                         sep = _detect_delimiter(tmp_path, detected_enc)
 
