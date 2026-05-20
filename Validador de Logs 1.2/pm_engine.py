@@ -141,7 +141,7 @@ def load_data(input_path: str, delimiter: str = "auto", encoding: str = "auto") 
 def normalize_strings(df: pd.DataFrame) -> pd.DataFrame:
     """Trim em todas as strings e substitui placeholders por NaN."""
     df = df.copy()
-    for col in df.select_dtypes(include=["object", "str"]).columns:
+    for col in df.select_dtypes(include="object").columns:
         df[col] = df[col].str.strip()
         df[col] = df[col].replace(PLACEHOLDER_VALUES, np.nan)
     return df
