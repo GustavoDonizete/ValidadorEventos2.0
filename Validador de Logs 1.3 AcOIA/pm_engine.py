@@ -1964,6 +1964,7 @@ def _build_log_rows(result: dict, id_execucao: int) -> tuple:
                 "id_execucao":   id_execucao,
                 "seq":           seq_sub,
                 "nome_base":     result["input_file"],
+                "aceleradora_oia": "Sim" if result.get("aceleradora_oia") else "Não",
                 "pilar":         pilar_label,
                 "subcategoria":  sd["subcategoria"],
                 "score_obtido":  sd["score_obtido"],
@@ -2077,6 +2078,7 @@ def _build_log_rows(result: dict, id_execucao: int) -> tuple:
                 "id_execucao":       id_execucao,
                 "seq":               seq,
                 "nome_base":         result["input_file"],
+                "aceleradora_oia":   "Sim" if result.get("aceleradora_oia") else "Não",
                 "pilar":             pilar_label,
                 "subcategoria":      subcat_key,
                 "score_obtido":      score_obtido,
@@ -2104,6 +2106,7 @@ def _build_log_rows(result: dict, id_execucao: int) -> tuple:
                     "id_execucao":       id_execucao,
                     "seq":               seq,
                     "nome_base":         result["input_file"],
+                    "aceleradora_oia":   "Sim" if result.get("aceleradora_oia") else "Não",
                     "pilar":             pilar_label,
                     "subcategoria":      "",
                     "score_obtido":      0,
@@ -2354,7 +2357,7 @@ def export_to_excel(result: dict, excel_path: str = "pm_engine_log.xlsx") -> str
 
     # ── ABA diagnosticos ──
     DIAG_HEADERS = [
-        "id_execucao", "seq", "nome_base", "pilar", "subcategoria",
+        "id_execucao", "seq", "nome_base", "aceleradora_oia", "pilar", "subcategoria",
         "score_obtido", "score_max", "impacto_pts",
         "tipo", "check", "mensagem",
         "valor_encontrado", "limite_referencia",
@@ -2364,7 +2367,7 @@ def export_to_excel(result: dict, excel_path: str = "pm_engine_log.xlsx") -> str
     if ws_diag.cell(1, 1).value != "id_execucao":
         style_header(ws_diag, DIAG_HEADERS)
         set_col_widths(ws_diag, [
-            10, 6, 24, 6, 26,
+            10, 6, 24, 16, 6, 26,
             12, 10, 26,
             8, 30, 65,
             18, 18,
@@ -2402,7 +2405,7 @@ def export_to_excel(result: dict, excel_path: str = "pm_engine_log.xlsx") -> str
 
     # ── ABA subcategorias ──
     SUB_HEADERS = [
-        "id_execucao", "seq", "nome_base", "pilar", "subcategoria",
+        "id_execucao", "seq", "nome_base", "aceleradora_oia", "pilar", "subcategoria",
         "score_obtido", "score_max", "pts_perdidos",
         "status", "barra", "impacto_texto",
     ]
@@ -2411,7 +2414,7 @@ def export_to_excel(result: dict, excel_path: str = "pm_engine_log.xlsx") -> str
 
     if ws_sub.cell(1, 1).value != "id_execucao":
         style_header(ws_sub, SUB_HEADERS)
-        set_col_widths(ws_sub, [10, 6, 24, 6, 32, 12, 10, 12, 10, 18, 34])
+        set_col_widths(ws_sub, [10, 6, 24, 16, 6, 32, 12, 10, 12, 10, 18, 34])
         ws_sub.freeze_panes = "A2"
 
     col_status_sub = SUB_HEADERS.index("status") + 1
