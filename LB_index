@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LogBuilder — Bases analíticas para event logs</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F6F3;
+    --surface: #FFFFFF;
+    --border: #E2E0D8;
+    --border-strong: #C8C6BC;
+    --text: #1A1916;
+    --text-muted: #6B6960;
+    --text-hint: #9C9A91;
+    --accent: #2D5BE3;
+    --accent-bg: #EEF2FD;
+    --accent-text: #1A3BAF;
+    --success: #1A7A4A;
+    --success-bg: #E8F5EE;
+    --warn-bg: #FEF3CD;
+    --warn-text: #7A5800;
+    --danger: #B91C1C;
+    --danger-bg: #FEE2E2;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111110;
+      --surface: #1C1C1A;
+      --border: #2E2D29;
+      --border-strong: #44433D;
+      --text: #F0EDE6;
+      --text-muted: #9C9A91;
+      --text-hint: #6B6960;
+      --accent: #5B82F5;
+      --accent-bg: #1A2340;
+      --accent-text: #93AEFF;
+      --success: #34D07C;
+      --success-bg: #0D2E1C;
+      --warn-bg: #2D2200;
+      --warn-text: #F5C842;
+      --danger: #F87171;
+      --danger-bg: #2D1010;
+    }
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo-mark {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-mark svg { width: 16px; height: 16px; fill: white; }
+  .logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+  .logo-text span { color: var(--text-muted); font-weight: 400; }
+  header .spacer { flex: 1; }
+  .header-hint { font-size: 12px; color: var(--text-hint); }
+
+  /* ── Server connector ── */
+  .server-connector {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .server-url-input {
+    padding: 5px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    background: var(--bg);
+    color: var(--text);
+    width: 210px;
+    transition: border-color .15s;
+  }
+  .server-url-input:focus { outline: none; border-color: var(--accent); }
+  .btn-connect {
+    padding: 5px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    font-size: 12px; font-weight: 500;
+    background: none; color: var(--text);
+    cursor: pointer; white-space: nowrap;
+    transition: all .15s;
+    font-family: var(--font);
+  }
+  .btn-connect:hover { border-color: var(--accent); color: var(--accent); }
+  .status-dot {
+    font-size: 12px; white-space: nowrap;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text-hint); flex-shrink: 0;
+    transition: background .3s;
+  }
+  .dot.online { background: var(--success); }
+  .dot.offline { background: var(--danger); }
+  .dot.checking { background: var(--warn-text); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* ── Steps nav ── */
+  .steps-nav {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 1.5rem 2rem 0;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+  .step-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text-muted);
+    cursor: default;
+  }
+  .step-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-strong);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+    transition: all .2s;
+  }
+  .step-item.active .step-num { background: var(--accent); border-color: var(--accent); color: white; }
+  .step-item.active { color: var(--text); font-weight: 500; }
+  .step-item.done .step-num { background: var(--success-bg); border-color: var(--success); color: var(--success); }
+  .step-item.done .step-num::after { content: '✓'; font-size: 10px; }
+  .step-item.done .step-num span { display: none; }
+  .step-sep { flex: 1; height: 1px; background: var(--border); margin: 0 12px; min-width: 24px; }
+
+  /* ── Main layout ── */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-top: 1.25rem;
+  }
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text);
+  }
+
+  /* ── Drop zone ── */
+  #drop-zone {
+    border: 2px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: var(--surface);
+    margin-top: 1.25rem;
+  }
+  #drop-zone:hover, #drop-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+  }
+  #drop-zone .icon { font-size: 2rem; margin-bottom: 0.75rem; color: var(--text-hint); }
+  #drop-zone h2 { font-size: 15px; font-weight: 500; margin-bottom: 0.5rem; }
+  #drop-zone p { font-size: 13px; color: var(--text-muted); }
+  #file-input { display: none; }
+  .btn-ghost {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 8px 16px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500;
+    cursor: pointer;
+    background: none;
+    color: var(--text);
+    transition: all .15s;
+  }
+  .btn-ghost:hover { background: var(--bg); border-color: var(--accent); color: var(--accent); }
+
+  /* ── File info badge ── */
+  .file-badge {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--success-bg);
+    border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    margin-top: 1rem;
+    font-size: 13px;
+  }
+  .file-badge .icon { font-size: 1.1rem; }
+  .file-badge strong { color: var(--success); }
+
+  /* ── Preview table ── */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-top: 0.75rem;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead { background: var(--bg); }
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+
+  /* ── Column configurator ── */
+  .col-config-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 0.75rem;
+  }
+  .col-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 160px 1fr 36px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: background .15s;
+  }
+  .col-row.disabled { opacity: 0.45; }
+  .col-row.is-id-col {
+    background: var(--accent-bg);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  .col-row.is-id-col .col-type-badge {
+    background: var(--accent-bg);
+    color: var(--accent-text);
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .col-checkbox {
+    width: 16px; height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .col-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .col-sample {
+    font-size: 11px;
+    color: var(--text-hint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .col-type-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: var(--bg);
+    text-align: center;
+    white-space: nowrap;
+    align-self: center;
+  }
+  .col-type-badge.date {
+    background: color-mix(in srgb, #2D5BE3 10%, transparent);
+    color: var(--accent-text);
+    border-color: color-mix(in srgb, #2D5BE3 25%, transparent);
+  }
+  .activity-input {
+    width: 100%;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font);
+    transition: border-color .15s;
+  }
+  .activity-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+  }
+  .activity-input:disabled { opacity: 0.4; cursor: not-allowed; }
+  .remove-btn {
+    width: 28px; height: 28px;
+    border: none; background: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: var(--text-hint);
+    transition: all .15s;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .remove-btn:hover { background: var(--danger-bg); color: var(--danger); }
+
+  /* ── Case ID selector ── */
+  .case-id-bar {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    margin-bottom: 1rem;
+  }
+  .case-id-bar label { font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .case-id-bar select {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font-mono);
+    max-width: 260px;
+  }
+  .case-id-bar select:focus { outline: none; border-color: var(--accent); }
+  .case-id-hint { font-size: 12px; color: var(--text-hint); }
+
+  /* ── Column header row ── */
+  .col-header {
+    display: grid;
+    grid-template-columns: 28px 1fr 160px 1fr 36px;
+    gap: 10px;
+    padding: 0 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-hint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    padding: 9px 20px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .15s;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font);
+  }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-outline {
+    padding: 9px 16px;
+    background: none;
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .15s;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .actions-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .spacer { flex: 1; }
+
+  /* ── Progress ── */
+  .progress-bar-wrap {
+    background: var(--border);
+    border-radius: 99px;
+    height: 4px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 99px;
+    transition: width .3s;
+  }
+
+  /* ── Alerts ── */
+  .alert {
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    margin-top: 0.75rem;
+    display: flex; gap: 8px; align-items: flex-start;
+  }
+  .alert.warn { background: var(--warn-bg); color: var(--warn-text); }
+  .alert.danger { background: var(--danger-bg); color: var(--danger); }
+  .alert.success { background: var(--success-bg); color: var(--success); }
+
+  /* ── Stats row ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 1rem 0;
+  }
+  .stat-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    text-align: center;
+  }
+  .stat-card .val {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .stat-card .lbl {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── Export buttons ── */
+  .export-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 1rem;
+  }
+  .export-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    background: var(--surface);
+    color: var(--text);
+    transition: all .15s;
+    font-family: var(--font);
+    text-decoration: none;
+  }
+  .export-btn:hover {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+  }
+  .export-btn .fmt-name { font-size: 13px; font-weight: 600; }
+  .export-btn .fmt-desc { font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.4; }
+  .export-btn .fmt-icon { font-size: 1.4rem; }
+
+  /* ── Loading spinner ── */
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid color-mix(in srgb, white 40%, transparent);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Hidden ── */
+  .hidden { display: none !important; }
+
+  /* ── Perspective selector ── */
+  .perspective-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .perspective-opt {
+    cursor: pointer;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 12px;
+    display: block;
+    transition: all .15s;
+    position: relative;
+  }
+  .perspective-opt input[type=radio] {
+    position: absolute; opacity: 0; width: 0; height: 0;
+  }
+  .perspective-opt:hover { border-color: var(--accent); background: var(--accent-bg); }
+  .perspective-opt:has(input:checked) {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .perspective-body { text-align: center; }
+  .perspective-icon { font-size: 1.5rem; margin-bottom: 6px; }
+  .perspective-label { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .perspective-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+  @media (max-width: 600px) {
+    .perspective-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .col-header, .col-row {
+      grid-template-columns: 28px 1fr 1fr 28px;
+    }
+    .col-row .col-type-badge { display: none; }
+    .col-header .h-type { display: none; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .export-grid { grid-template-columns: 1fr; }
+    .steps-nav { padding: 1rem 1rem 0; }
+    main { padding: 1rem 1rem 3rem; }
+    header { padding: 0 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">
+    <svg viewBox="0 0 16 16"><path d="M2 3h5v2H2V3zm0 4h12v2H2V7zm0 4h8v2H2v-2z"/></svg>
+  </div>
+  <span class="logo-text">LogBuilder <span>/ Process Mining</span></span>
+  <div class="spacer"></div>
+  <div class="server-connector">
+    <input type="text" class="server-url-input" id="server-url-input"
+           value="http://localhost:5000" placeholder="http://localhost:5000"
+           onkeydown="if(event.key==='Enter') connectServer()">
+    <button class="btn-connect" onclick="connectServer()">Conectar</button>
+    <div class="status-dot">
+      <div class="dot checking" id="status-dot"></div>
+      <span id="server-status" style="color: var(--text-muted);">aguardando</span>
+    </div>
+  </div>
+</header>
+
+<!-- Steps nav -->
+<div class="steps-nav">
+  <div class="step-item active" id="step-nav-1">
+    <div class="step-num"><span>1</span></div>
+    Upload
+  </div>
+  <div class="step-sep"></div>
+  <div class="step-item" id="step-nav-2">
+    <div class="step-num"><span>2</span></div>
+    Configurar colunas
+  </div>
+  <div class="step-sep"></div>
+  <div class="step-item" id="step-nav-3">
+    <div class="step-num"><span>3</span></div>
+    Exportar event log
+  </div>
+</div>
+
+<main>
+
+  <!-- ════════ STEP 1: Upload ════════ -->
+  <div id="step-1">
+    <div id="drop-zone">
+      <div class="icon">📂</div>
+      <h2>Arraste seu arquivo aqui</h2>
+      <p>CSV ou Excel (.xlsx) com colunas de data de negócio</p>
+      <button class="btn-ghost" onclick="document.getElementById('file-input').click()">
+        Escolher arquivo
+      </button>
+      <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
+    </div>
+
+    <div id="upload-progress" class="hidden">
+      <div class="file-badge" id="upload-badge">
+        <span class="icon">📄</span>
+        <div>
+          <strong id="upload-filename">arquivo.csv</strong>
+          <div id="upload-status" style="color: var(--text-muted); font-size: 12px;">Carregando...</div>
+        </div>
+      </div>
+      <div class="progress-bar-wrap" style="margin-top: 8px;">
+        <div class="progress-bar-fill" id="upload-progress-bar" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <div id="upload-error" class="alert danger hidden">
+      <span>⚠️</span><span id="upload-error-msg"></span>
+    </div>
+
+    <div id="preview-section" class="hidden">
+      <div class="card">
+        <div class="card-title">Preview dos dados</div>
+        <div class="table-wrap">
+          <table id="preview-table"></table>
+        </div>
+        <div style="margin-top: 10px; font-size: 12px; color: var(--text-hint);" id="file-meta"></div>
+      </div>
+      <div class="actions-row">
+        <div class="spacer"></div>
+        <button class="btn-primary" id="btn-go-step2" onclick="goToStep2()">
+          Configurar colunas →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ STEP 2: Configure ════════ -->
+  <div id="step-2" class="hidden">
+
+    <!-- Perspectiva -->
+    <div class="card">
+      <div class="card-title">Perspectiva de análise</div>
+      <div class="perspective-grid">
+
+        <label class="perspective-opt" id="opt-process">
+          <input type="radio" name="perspective" value="process" checked onchange="onPerspectiveChange()">
+          <div class="perspective-body">
+            <div class="perspective-icon">🔄</div>
+            <div class="perspective-label">Por processo</div>
+            <div class="perspective-desc">Ciclo de vida de cada operação individual</div>
+          </div>
+        </label>
+
+        <label class="perspective-opt" id="opt-client">
+          <input type="radio" name="perspective" value="client" onchange="onPerspectiveChange()">
+          <div class="perspective-body">
+            <div class="perspective-icon">👤</div>
+            <div class="perspective-label">Por cliente</div>
+            <div class="perspective-desc">Jornada completa de cada cliente ao longo do tempo</div>
+          </div>
+        </label>
+
+        <label class="perspective-opt" id="opt-both">
+          <input type="radio" name="perspective" value="both" onchange="onPerspectiveChange()">
+          <div class="perspective-body">
+            <div class="perspective-icon">⚡</div>
+            <div class="perspective-label">Ambas</div>
+            <div class="perspective-desc">Gera dois logs separados — exporta como ZIP</div>
+          </div>
+        </label>
+
+      </div>
+    </div>
+
+    <!-- IDs -->
+    <div class="card">
+      <div class="card-title">Colunas identificadoras</div>
+
+      <div class="case-id-bar" id="row-process-id">
+        <label for="case-id-select">ID do processo</label>
+        <select id="case-id-select"></select>
+        <span class="case-id-hint">Identifica cada operação</span>
+      </div>
+
+      <div class="case-id-bar" id="row-client-id" style="margin-top: 8px; display: none;">
+        <label for="client-id-select">ID do cliente</label>
+        <select id="client-id-select"></select>
+        <span class="case-id-hint">Agrupa processos de um mesmo cliente</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Colunas de atividade</div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 1rem;">
+        Marque as colunas de data que virarão eventos. Edite o nome da atividade como quiser.
+      </p>
+
+      <div class="col-header">
+        <span></span>
+        <span>Coluna na base</span>
+        <span class="h-type">Tipo / amostra</span>
+        <span>Nome da atividade no log</span>
+        <span></span>
+      </div>
+      <div class="col-config-grid" id="col-config-grid"></div>
+
+      <div id="step2-error" class="alert danger hidden" style="margin-top: 1rem;">
+        <span>⚠️</span><span id="step2-error-msg"></span>
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button class="btn-outline" onclick="goToStep1()">← Voltar</button>
+      <div class="spacer"></div>
+      <span id="selected-count" style="font-size: 13px; color: var(--text-muted);"></span>
+      <button class="btn-primary" id="btn-convert" onclick="doConvert()">
+        Gerar event log
+      </button>
+    </div>
+  </div>
+
+  <!-- ════════ STEP 3: Export ════════ -->
+  <div id="step-3" class="hidden">
+
+    <!-- Perspectiva processo -->
+    <div id="result-process" class="hidden">
+      <div class="card">
+        <div class="card-title" style="display:flex; align-items:center; gap:8px;">
+          <span>🔄</span> Log por processo
+        </div>
+        <div class="stats-row">
+          <div class="stat-card"><div class="val" id="stat-proc-cases">—</div><div class="lbl">Processos</div></div>
+          <div class="stat-card"><div class="val" id="stat-proc-events">—</div><div class="lbl">Eventos</div></div>
+          <div class="stat-card"><div class="val" id="stat-proc-skipped">—</div><div class="lbl">Ignorados</div></div>
+        </div>
+        <div class="card-title" style="margin-top:1rem;">Preview</div>
+        <div class="table-wrap"><table id="log-preview-process"></table></div>
+      </div>
+    </div>
+
+    <!-- Perspectiva cliente -->
+    <div id="result-client" class="hidden">
+      <div class="card">
+        <div class="card-title" style="display:flex; align-items:center; gap:8px;">
+          <span>👤</span> Log por cliente
+        </div>
+        <div class="stats-row">
+          <div class="stat-card"><div class="val" id="stat-cli-cases">—</div><div class="lbl">Clientes</div></div>
+          <div class="stat-card"><div class="val" id="stat-cli-events">—</div><div class="lbl">Eventos</div></div>
+          <div class="stat-card"><div class="val" id="stat-cli-skipped">—</div><div class="lbl">Ignorados</div></div>
+        </div>
+        <div class="card-title" style="margin-top:1rem;">Preview</div>
+        <div class="table-wrap"><table id="log-preview-client"></table></div>
+      </div>
+    </div>
+
+    <div id="convert-warnings"></div>
+
+    <!-- Exportar -->
+    <div class="card">
+      <div class="card-title">Exportar</div>
+
+      <!-- Seletor de perspectiva quando "ambas" -->
+      <div id="export-which-row" class="hidden" style="margin-bottom:1rem;">
+        <div class="case-id-bar">
+          <label>Perspectiva</label>
+          <select id="export-which-select">
+            <option value="both">Ambas (ZIP)</option>
+            <option value="process">Apenas por processo</option>
+            <option value="client">Apenas por cliente</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="export-grid">
+        <button class="export-btn" onclick="doExport('csv')">
+          <span class="fmt-icon">📊</span>
+          <span class="fmt-name">CSV padrão</span>
+          <span class="fmt-desc">case_id · timestamp · activity</span>
+        </button>
+        <button class="export-btn" onclick="doExport('celonis')">
+          <span class="fmt-icon">⚡</span>
+          <span class="fmt-name">Celonis</span>
+          <span class="fmt-desc">Case ID · Activity · Timestamp</span>
+        </button>
+        <button class="export-btn" onclick="doExport('disco')">
+          <span class="fmt-icon">🔵</span>
+          <span class="fmt-name">Disco</span>
+          <span class="fmt-desc">case · activity · start timestamp</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button class="btn-outline" onclick="goToStep2()">← Ajustar configuração</button>
+      <div class="spacer"></div>
+      <button class="btn-outline" onclick="resetAll()">Nova conversão</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+let API = 'http://localhost:5000/api';
+
+let state = {
+  sessionId: null,
+  filename: null,
+  allColumns: [],
+  previewData: [],
+  rows: 0,
+  perspective: 'process',
+};
+
+// ── Server connector ─────────────────────────────────────────────────────
+function connectServer() {
+  const raw = document.getElementById('server-url-input').value.trim().replace(/\/+$/, '');
+  if (!raw) return;
+  API = raw + '/api';
+  checkServer();
+}
+
+async function checkServer() {
+  const dot = document.getElementById('status-dot');
+  const lbl = document.getElementById('server-status');
+  dot.className = 'dot checking';
+  lbl.textContent = 'verificando...';
+  lbl.style.color = 'var(--text-muted)';
+  try {
+    await fetch(`${API}/upload`, { method: 'OPTIONS' });
+    dot.className = 'dot online';
+    lbl.textContent = 'online';
+    lbl.style.color = 'var(--success)';
+  } catch {
+    dot.className = 'dot offline';
+    lbl.textContent = 'offline';
+    lbl.style.color = 'var(--danger)';
+  }
+}
+checkServer();
+
+// ── Drop zone ───────────────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+// ── Upload ──────────────────────────────────────────────────────────────
+async function handleFile(file) {
+  const allowed = ['csv', 'xlsx', 'xls'];
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!allowed.includes(ext)) {
+    showUploadError('Formato não suportado. Use CSV ou Excel (.xlsx).');
+    return;
+  }
+
+  document.getElementById('upload-error').classList.add('hidden');
+  document.getElementById('preview-section').classList.add('hidden');
+  document.getElementById('upload-progress').classList.remove('hidden');
+  document.getElementById('upload-filename').textContent = file.name;
+  document.getElementById('upload-status').textContent = 'Enviando...';
+
+  // Animate progress bar
+  let prog = 0;
+  const progInterval = setInterval(() => {
+    prog = Math.min(prog + Math.random() * 15, 85);
+    document.getElementById('upload-progress-bar').style.width = prog + '%';
+  }, 150);
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    const r = await fetch(`${API}/upload`, { method: 'POST', body: form });
+    const data = await r.json();
+    clearInterval(progInterval);
+
+    if (!r.ok) {
+      showUploadError(data.error || 'Erro ao processar o arquivo.');
+      return;
+    }
+
+    document.getElementById('upload-progress-bar').style.width = '100%';
+    document.getElementById('upload-status').textContent =
+      `${data.rows.toLocaleString('pt-BR')} linhas · ${data.columns.length} colunas`;
+
+    state.sessionId = data.session_id;
+    state.filename = data.filename;
+    state.allColumns = data.columns;
+    state.previewData = data.preview;
+    state.rows = data.rows;
+
+    renderPreview(data.columns, data.preview, data.rows);
+    document.getElementById('preview-section').classList.remove('hidden');
+
+  } catch (err) {
+    clearInterval(progInterval);
+    showUploadError('Não foi possível conectar ao servidor. Verifique se o server.py está rodando.');
+  }
+}
+
+function showUploadError(msg) {
+  document.getElementById('upload-progress').classList.add('hidden');
+  document.getElementById('upload-error').classList.remove('hidden');
+  document.getElementById('upload-error-msg').textContent = msg;
+}
+
+function renderPreview(columns, rows, total) {
+  const table = document.getElementById('preview-table');
+  const heads = columns.map(c => {
+    const badge = c.is_date
+      ? `<span style="margin-left:6px; font-size:9px; padding:1px 5px; border-radius:3px; background: var(--accent-bg); color: var(--accent-text); font-weight:600;">DATA</span>`
+      : '';
+    return `<th>${escHtml(c.name)}${badge}</th>`;
+  }).join('');
+
+  const bodyRows = rows.map(row => {
+    const cells = columns.map(c => `<td title="${escHtml(String(row[c.name] ?? ''))}">${escHtml(String(row[c.name] ?? ''))}</td>`).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+
+  table.innerHTML = `<thead><tr>${heads}</tr></thead><tbody>${bodyRows}</tbody>`;
+
+  const dateCols = columns.filter(c => c.is_date).length;
+  document.getElementById('file-meta').textContent =
+    `${total.toLocaleString('pt-BR')} linhas · ${columns.length} colunas · ${dateCols} colunas de data detectadas`;
+}
+
+// ── Step 2 ──────────────────────────────────────────────────────────────
+function goToStep1() {
+  setStep(1);
+}
+
+function goToStep2() {
+  setStep(2);
+  buildColumnConfigurator();
+}
+
+function onPerspectiveChange() {
+  const val = document.querySelector('input[name=perspective]:checked').value;
+  state.perspective = val;
+  const rowProc = document.getElementById('row-process-id');
+  const rowCli  = document.getElementById('row-client-id');
+  rowProc.style.display = (val === 'process' || val === 'both') ? 'flex' : 'none';
+  rowCli.style.display  = (val === 'client'  || val === 'both') ? 'flex' : 'none';
+  highlightIdCols();
+}
+
+function buildColumnConfigurator() {
+  const caseSelect   = document.getElementById('case-id-select');
+  const clientSelect = document.getElementById('client-id-select');
+  const grid = document.getElementById('col-config-grid');
+
+  const opts = state.allColumns
+    .map(c => `<option value="${escHtml(c.name)}">${escHtml(c.name)}</option>`)
+    .join('');
+  caseSelect.innerHTML   = opts;
+  clientSelect.innerHTML = opts;
+
+  // Pré-selecionar: primeiro não-data para processo, segundo não-data para cliente
+  const nonDate = state.allColumns.filter(c => !c.is_date);
+  if (nonDate[0]) caseSelect.value   = nonDate[0].name;
+  if (nonDate[1]) clientSelect.value = nonDate[1].name;
+
+  caseSelect.addEventListener('change',   highlightIdCols);
+  clientSelect.addEventListener('change', highlightIdCols);
+
+  // Montar linhas de colunas
+  grid.innerHTML = '';
+  state.allColumns.forEach(col => {
+    const isDate   = col.is_date;
+    const suggested = col.suggested_activity || toTitleCase(col.name);
+    const sample   = col.sample ? col.sample.slice(0, 2).join(', ') : '';
+
+    const row = document.createElement('div');
+    row.className = `col-row ${isDate ? '' : 'disabled'}`;
+    row.dataset.col = col.name;
+
+    row.innerHTML = `
+      <input type="checkbox" class="col-checkbox" ${isDate ? 'checked' : ''}
+             onchange="toggleColRow(this)" title="Incluir como atividade">
+      <div>
+        <div class="col-name">${escHtml(col.name)}</div>
+      </div>
+      <div>
+        <div class="col-type-badge ${isDate ? 'date' : ''}">${isDate ? 'data' : col.dtype}</div>
+        <div class="col-sample" title="${escHtml(sample)}">${escHtml(sample)}</div>
+      </div>
+      <input type="text" class="activity-input" value="${escHtml(suggested)}"
+             placeholder="Nome da atividade" ${!isDate ? 'disabled' : ''}
+             oninput="updateCount()">
+      <button class="remove-btn" onclick="removeColRow(this)" title="Remover">×</button>
+    `;
+    grid.appendChild(row);
+  });
+
+  onPerspectiveChange();
+  updateCount();
+}
+
+function highlightIdCols() {
+  const procId   = document.getElementById('case-id-select').value;
+  const clientId = document.getElementById('client-id-select').value;
+  const idCols   = new Set([procId, clientId]);
+
+  document.querySelectorAll('.col-row').forEach(row => {
+    const isId = idCols.has(row.dataset.col);
+    row.classList.toggle('is-id-col', isId);
+    const cb    = row.querySelector('.col-checkbox');
+    const input = row.querySelector('.activity-input');
+    if (isId) {
+      cb.checked = false; cb.disabled = true;
+      input.disabled = true;
+      row.classList.add('disabled');
+    } else {
+      cb.disabled = false;
+    }
+  });
+}
+
+function toggleColRow(checkbox) {
+  const row = checkbox.closest('.col-row');
+  const input = row.querySelector('.activity-input');
+  const checked = checkbox.checked;
+  row.classList.toggle('disabled', !checked);
+  input.disabled = !checked;
+  updateCount();
+}
+
+function removeColRow(btn) {
+  btn.closest('.col-row').remove();
+  updateCount();
+}
+
+function updateCount() {
+  const checked = document.querySelectorAll('.col-row:not(.is-id-col) .col-checkbox:checked').length;
+  document.getElementById('selected-count').textContent =
+    checked === 0 ? 'nenhuma coluna selecionada' :
+    `${checked} coluna${checked !== 1 ? 's' : ''} selecionada${checked !== 1 ? 's' : ''}`;
+}
+
+// ── Convert ─────────────────────────────────────────────────────────────
+async function doConvert() {
+  document.getElementById('step2-error').classList.add('hidden');
+
+  const perspective  = document.querySelector('input[name=perspective]:checked').value;
+  const caseIdCol    = document.getElementById('case-id-select').value;
+  const clientIdCol  = document.getElementById('client-id-select').value;
+  const mappings     = [];
+
+  document.querySelectorAll('.col-row:not(.is-id-col)').forEach(row => {
+    const cb = row.querySelector('.col-checkbox');
+    if (!cb.checked) return;
+    const col          = row.dataset.col;
+    const activityName = row.querySelector('.activity-input').value.trim() || col;
+    mappings.push({ col, activity_name: activityName });
+  });
+
+  if (mappings.length === 0) {
+    document.getElementById('step2-error').classList.remove('hidden');
+    document.getElementById('step2-error-msg').textContent =
+      'Selecione pelo menos uma coluna de atividade.';
+    return;
+  }
+
+  const btn = document.getElementById('btn-convert');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> Convertendo...`;
+
+  try {
+    const body = {
+      session_id:     state.sessionId,
+      perspective,
+      case_id_col:    caseIdCol,
+      client_id_col:  clientIdCol,
+      mappings,
+    };
+
+    const r = await fetch(`${API}/convert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+
+    if (!r.ok) {
+      document.getElementById('step2-error').classList.remove('hidden');
+      document.getElementById('step2-error-msg').textContent = data.error || 'Erro na conversão.';
+      return;
+    }
+
+    state.perspective = perspective;
+    renderStep3(data);
+    setStep(3);
+
+  } catch (err) {
+    document.getElementById('step2-error').classList.remove('hidden');
+    document.getElementById('step2-error-msg').textContent =
+      'Não foi possível conectar ao servidor.';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Gerar event log';
+  }
+}
+
+function renderPreviewTable(tableId, rows) {
+  if (!rows || rows.length === 0) return;
+  const cols = Object.keys(rows[0]);
+  const heads = cols.map(c => `<th>${escHtml(c)}</th>`).join('');
+  const body  = rows.map(row =>
+    `<tr>${cols.map(c => `<td>${escHtml(String(row[c] ?? ''))}</td>`).join('')}</tr>`
+  ).join('');
+  document.getElementById(tableId).innerHTML =
+    `<thead><tr>${heads}</tr></thead><tbody>${body}</tbody>`;
+}
+
+function renderStep3(data) {
+  const logs = data.logs || {};
+
+  // Resultado processo
+  const rp = document.getElementById('result-process');
+  if (logs.process) {
+    rp.classList.remove('hidden');
+    document.getElementById('stat-proc-cases').textContent   = logs.process.total_cases.toLocaleString('pt-BR');
+    document.getElementById('stat-proc-events').textContent  = logs.process.total_events.toLocaleString('pt-BR');
+    document.getElementById('stat-proc-skipped').textContent = logs.process.skipped_nulls.toLocaleString('pt-BR');
+    renderPreviewTable('log-preview-process', logs.process.preview);
+  } else { rp.classList.add('hidden'); }
+
+  // Resultado cliente
+  const rc = document.getElementById('result-client');
+  if (logs.client) {
+    rc.classList.remove('hidden');
+    document.getElementById('stat-cli-cases').textContent   = logs.client.total_cases.toLocaleString('pt-BR');
+    document.getElementById('stat-cli-events').textContent  = logs.client.total_events.toLocaleString('pt-BR');
+    document.getElementById('stat-cli-skipped').textContent = logs.client.skipped_nulls.toLocaleString('pt-BR');
+    renderPreviewTable('log-preview-client', logs.client.preview);
+  } else { rc.classList.add('hidden'); }
+
+  // Warnings
+  const warnDiv = document.getElementById('convert-warnings');
+  warnDiv.innerHTML = '';
+  (data.warnings || []).forEach(w => {
+    const d = document.createElement('div');
+    d.className = 'alert warn';
+    d.innerHTML = `<span>⚠️</span><span>${escHtml(w)}</span>`;
+    warnDiv.appendChild(d);
+  });
+
+  // Mostrar seletor "ambas / só processo / só cliente" apenas quando perspective=both
+  document.getElementById('export-which-row').classList.toggle('hidden', data.perspective !== 'both');
+}
+
+// ── Export ──────────────────────────────────────────────────────────────
+function doExport(fmt) {
+  const perspective = state.perspective;
+  let which;
+  if (perspective === 'both') {
+    which = document.getElementById('export-which-select').value;
+  } else {
+    which = perspective;  // "process" or "client"
+  }
+  const url = `${API}/export?session_id=${state.sessionId}&format=${fmt}&which=${which}`;
+  window.location.href = url;
+}
+
+// ── Steps navigation ────────────────────────────────────────────────────
+function setStep(n) {
+  [1, 2, 3].forEach(i => {
+    document.getElementById(`step-${i}`).classList.toggle('hidden', i !== n);
+    const nav = document.getElementById(`step-nav-${i}`);
+    nav.classList.remove('active', 'done');
+    if (i === n) nav.classList.add('active');
+    else if (i < n) nav.classList.add('done');
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetAll() {
+  state = { sessionId: null, filename: null, allColumns: [], previewData: [], rows: 0 };
+  document.getElementById('file-input').value = '';
+  document.getElementById('upload-progress').classList.add('hidden');
+  document.getElementById('preview-section').classList.add('hidden');
+  document.getElementById('upload-error').classList.add('hidden');
+  document.getElementById('upload-progress-bar').style.width = '0%';
+  setStep(1);
+}
+
+// ── Utilities ───────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function toTitleCase(str) {
+  return str.replace(/_/g, ' ').replace(/\w\S*/g, w =>
+    w.charAt(0).toUpperCase() + w.substr(1).toLowerCase()
+  );
+}
+</script>
+</body>
+</html>
